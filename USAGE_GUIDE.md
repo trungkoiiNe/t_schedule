@@ -20,18 +20,25 @@ This guide provides detailed instructions and best practices for using the TDMU 
 ### 1. Install Dependencies
 
 ```bash
-yarn add react-native-t-schedule @react-native-async-storage/async-storage @react-native-google-signin/google-signin axios
+yarn add react-native-t-schedule @react-native-async-storage/async-storage
 ```
 
-### 2. Configure Google Sign-In
+### 2. Configure Your App Scheme
 
-```typescript
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+In your `app.json` (Expo) or `app.json`/`AndroidManifest.xml`/`Info.plist` (Bare RN):
 
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  offlineAccess: true,
-});
+```json
+{
+  "expo": {
+    "scheme": "your-app-scheme",
+    "android": {
+      "package": "com.yourcompany.yourapp"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.yourapp"
+    }
+  }
+}
 ```
 
 ### 3. Use the Component
@@ -43,6 +50,11 @@ function App() {
   return <TDMUScheduleView />;
 }
 ```
+
+**That's it!** No Firebase setup, no Google Console access needed. The package automatically:
+- Fetches Google Client ID from TDMU API
+- Handles OAuth with Expo AuthSession
+- Manages tokens and caching
 
 ---
 
@@ -102,17 +114,36 @@ The package automatically:
 ### Manual Authentication (Direct Client)
 
 ```typescript
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AuthSession from 'expo-auth-session';
 import { TDMUScheduleClient } from 'react-native-t-schedule';
+import axios from 'axios';
 
 const client = new TDMUScheduleClient();
 
-// Get Google token
-await GoogleSignin.signIn();
-const tokens = await GoogleSignin.getTokens();
+// Fetch Google Client ID from TDMU
+const { data } = await axios.get('https://dkmh.tdmu.edu.vn/authconfig');
+const googleClientId = data.gg;
 
-// Authenticate with TDMU
-await client.authenticateWithGoogle(tokens.accessToken);
+// Set up OAuth request
+const redirectUri = AuthSession.makeRedirectUri();
+const discovery = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+};
+
+const authUrl = `${discovery.authorizationEndpoint}?` +
+  `client_id=${googleClientId}&` +
+  `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+  `response_type=id_token&` +
+  `scope=openid%20email%20profile&` +
+  `nonce=${Math.random().toString(36)}`;
+
+const result = await AuthSession.startAsync({ authUrl });
+
+if (result.type === 'success') {
+  const idToken = result.params.id_token;
+  // Authenticate with TDMU
+  await client.authenticateWithGoogle(idToken);
+}
 ```
 
 ---
@@ -349,14 +380,21 @@ function MyCustomScheduleUI() {
 ### 1. Initialize Google Sign-In Early
 
 ```typescript
-// In App.tsx or index.js
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// In app.json (Expo)
+{
+  "expo": {
+    "scheme": "your-app-scheme",
+    "android": {
+      "package": "com.yourcompany.yourapp"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.yourapp"
+    }
+  }
+}
 
-// Configure before rendering any components
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID',
-  offlineAccess: true,
-});
+// No code configuration needed!
+// The package automatically fetches Google Client ID from TDMU API
 ```
 
 ### 2. Handle Errors Gracefully

@@ -52,7 +52,9 @@ export const useTDMUSchedule = (
   useEffect(() => {
     const fetchClientId = async () => {
       try {
-        const { data } = await axios.get('https://dkmh.tdmu.edu.vn/authconfig');
+        const { data } = await axios.get(
+          'https://dkmh.tdmu.edu.vn/public/api/auth/authconfig'
+        );
         const clientId = data.gg;
         if (clientId) {
           setGoogleClientId(clientId);
@@ -70,10 +72,8 @@ export const useTDMUSchedule = (
       webClientId: googleClientId || '', // Use webClientId for Google OAuth
       responseType: AuthSession.ResponseType.IdToken,
       scopes: ['openid', 'email', 'profile'],
-    },
-    {
-      scheme: 'tschedule-example', // Use a default scheme
     }
+    // Don't specify scheme here - let AuthSession.makeRedirectUri() handle it automatically
   );
 
   const handleGoogleAuthSuccess = useCallback(
@@ -86,10 +86,15 @@ export const useTDMUSchedule = (
         console.log('TDMU authentication successful');
 
         setIsAuthenticated(true);
+        setError(null);
         setIsLoading(false);
       } catch (err: any) {
         console.error('TDMU authentication error:', err);
-        setError(err.message || 'TDMU authentication failed');
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          'TDMU authentication failed';
+        setError(errorMessage);
         setIsAuthenticated(false);
         setIsLoading(false);
       }
@@ -104,9 +109,17 @@ export const useTDMUSchedule = (
 
       if (idToken) {
         handleGoogleAuthSuccess(idToken);
+      } else {
+        setError('No ID token received from Google');
+        setIsLoading(false);
       }
     } else if (response?.type === 'error') {
-      setError('Authentication failed');
+      console.error('Google OAuth error:', response.error);
+      setError(response.error?.description || 'Google authentication failed');
+      setIsLoading(false);
+    } else if (response?.type === 'cancel') {
+      console.log('User cancelled authentication');
+      setError('Authentication cancelled');
       setIsLoading(false);
     }
   }, [response, handleGoogleAuthSuccess]);
@@ -119,21 +132,37 @@ export const useTDMUSchedule = (
       setIsLoading(true);
       setError(null);
 
+      // Wait for Google Client ID if not loaded yet
       if (!googleClientId) {
-        throw new Error('Google client ID not available. Please try again.');
+        console.log('Waiting for Google Client ID...');
+        // Give it a short retry window
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!googleClientId) {
+          throw new Error(
+            'Could not load Google Client ID from TDMU. Please check your internet connection and try again.'
+          );
+        }
       }
 
       if (!request) {
-        throw new Error('Auth request not ready. Please try again.');
+        throw new Error(
+          'OAuth request not ready. Please try again in a moment.'
+        );
       }
 
-      console.log('Starting Google OAuth flow...');
-      await promptAsync();
+      console.log(
+        'Starting Google OAuth flow with Client ID:',
+        googleClientId.substring(0, 20) + '...'
+      );
+      const result = await promptAsync();
 
-      return true; // Return true, the actual success will be handled in useEffect
+      // The actual authentication result will be handled in useEffect
+      return result.type !== 'error' && result.type !== 'dismiss';
     } catch (err: any) {
       console.error('Authentication error:', err);
-      setError(err.message || 'Authentication failed');
+      const errorMessage =
+        err.message || 'Authentication failed. Please try again.';
+      setError(errorMessage);
       setIsAuthenticated(false);
       setIsLoading(false);
       return false;

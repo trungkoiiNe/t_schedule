@@ -5,39 +5,44 @@ Get up and running with react-native-t-schedule in 5 minutes!
 ## Step 1: Install (1 minute)
 
 ```bash
-npm install react-native-t-schedule @react-native-async-storage/async-storage @react-native-google-signin/google-signin axios
+npm install react-native-t-schedule @react-native-async-storage/async-storage
 ```
 
 or
 
 ```bash
-yarn add react-native-t-schedule @react-native-async-storage/async-storage @react-native-google-signin/google-signin axios
+yarn add react-native-t-schedule @react-native-async-storage/async-storage
 ```
 
-## Step 2: Get Your Web Client ID (2 minutes)
+## Step 2: Configure Your App (2 minutes)
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project (or create a new one if needed)
-3. Click the gear icon → **Project Settings**
-4. Scroll down to **Your apps** section
-5. Copy the **Web client ID**
+### For Expo Projects (Recommended)
 
-It looks like: `123456789-abcdefg.apps.googleusercontent.com`
+1. **Update your `app.json`** to include a custom scheme:
 
-## Step 3: Configure Google Sign-In (30 seconds)
-
-In your `App.tsx` or `index.js`, add at the top:
-
-```typescript
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com', // Paste your Web Client ID here
-  offlineAccess: true,
-});
+```json
+{
+  "expo": {
+    "scheme": "your-app-scheme",
+    "android": {
+      "package": "com.yourcompany.yourapp"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.yourapp"
+    }
+  }
+}
 ```
 
-## Step 4: Use the Component (30 seconds)
+### For Bare React Native Projects
+
+The package automatically uses Expo modules. Ensure you have:
+
+```bash
+npx install-expo-modules@latest
+```
+
+## Step 3: Use the Component (30 seconds)
 
 Replace your component code with:
 
@@ -72,6 +77,17 @@ You should now see:
 1. A "Sign in with Google" button
 2. After signing in, your TDMU schedule will load automatically
 3. A beautiful list of your classes
+
+## How It Works
+
+This package:
+1. ✅ Automatically fetches Google Client ID from TDMU API (`/authconfig`)
+2. ✅ Uses **Expo AuthSession** with web client ID (no Android/iOS client needed)
+3. ✅ Opens Google login in a secure web browser
+4. ✅ Exchanges the ID token with TDMU to get access token
+5. ✅ Fetches and displays your schedule
+
+**No Firebase setup, no SHA-1 fingerprint, no Google Cloud Console access needed!**
 
 ## Next Steps
 

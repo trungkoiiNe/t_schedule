@@ -35,67 +35,29 @@ cd ..
 
 ## Configuration
 
-### Google Sign-In Setup
+### Authentication Setup
 
-1. **Get your Web Client ID:**
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Select your project (or create a new one)
-   - Go to Project Settings → General
-   - Copy the "Web client ID"
+**No complex setup required!** This example uses **Expo AuthSession** which:
 
-2. **Configure Google Sign-In in the app:**
+✅ Automatically fetches Google Client ID from TDMU API  
+✅ Works with web client ID only (no Android/iOS client needed)  
+✅ No Firebase setup required  
+✅ No SHA-1 fingerprint needed  
+✅ No Google Cloud Console access required  
 
-Open `example/src/App.tsx` (or create an initialization file) and add:
+The app is already configured with:
+- Custom scheme: `tschedule-example` (in `app.json`)
+- Package name: `tschedule.example`
+- Bundle ID: `tschedule.example`
 
-```typescript
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+### How It Works
 
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  offlineAccess: true,
-});
-```
+1. App loads → fetches Google Client ID from `https://dkmh.tdmu.edu.vn/authconfig`
+2. User clicks "Sign in" → opens Google login in secure browser
+3. Google returns ID token → exchanged with TDMU API for access token
+4. App fetches and displays schedule
 
-### iOS Configuration
-
-1. **Update Info.plist:**
-
-Add the following to `example/ios/TScheduleExample/Info.plist`:
-
-```xml
-<key>CFBundleURLTypes</key>
-<array>
-  <dict>
-    <key>CFBundleTypeRole</key>
-    <string>Editor</string>
-    <key>CFBundleURLSchemes</key>
-    <array>
-      <string>YOUR_REVERSED_CLIENT_ID</string>
-    </array>
-  </dict>
-</array>
-```
-
-Replace `YOUR_REVERSED_CLIENT_ID` with the reversed client ID from Firebase.
-
-### Android Configuration
-
-1. **Get SHA-1 fingerprint:**
-
-```bash
-cd android
-./gradlew signingReport
-```
-
-Copy the SHA-1 fingerprint.
-
-2. **Add to Firebase:**
-   - Go to Firebase Console
-   - Project Settings → General
-   - Add your Android app
-   - Add the SHA-1 fingerprint
-   - Download `google-services.json`
-   - Place it in `example/android/app/`
+That's it! No manual configuration needed.
 
 ## Running the App
 

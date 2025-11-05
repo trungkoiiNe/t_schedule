@@ -59,10 +59,8 @@ export default function DirectClientExample() {
       webClientId: googleClientId || '', // Use webClientId for Google OAuth
       responseType: AuthSession.ResponseType.IdToken,
       scopes: ['openid', 'email', 'profile'],
-    },
-    {
-      scheme: 'tschedule-example',
     }
+    // Don't specify scheme - let AuthSession.makeRedirectUri() handle it automatically
   );
 
   const handleFetchSchedule = useCallback(async () => {
@@ -115,9 +113,17 @@ export default function DirectClientExample() {
 
       if (idToken) {
         handleGoogleAuthSuccess(idToken);
+      } else {
+        setError('No ID token received from Google');
+        setIsLoading(false);
       }
     } else if (response?.type === 'error') {
-      setError('Authentication failed');
+      console.error('Google OAuth error:', response.error);
+      setError(response.error?.description || 'Google authentication failed');
+      setIsLoading(false);
+    } else if (response?.type === 'cancel') {
+      console.log('User cancelled authentication');
+      setError('Authentication cancelled');
       setIsLoading(false);
     }
   }, [response, handleGoogleAuthSuccess]);
@@ -127,19 +133,33 @@ export default function DirectClientExample() {
       setIsLoading(true);
       setError(null);
 
+      // Wait for Google Client ID if not loaded yet
       if (!googleClientId) {
-        throw new Error('Google client ID not available. Please try again.');
+        console.log('Waiting for Google Client ID...');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!googleClientId) {
+          throw new Error(
+            'Could not load Google Client ID from TDMU. Please check your internet connection and try again.'
+          );
+        }
       }
 
       if (!request) {
-        throw new Error('Auth request not ready. Please try again.');
+        throw new Error(
+          'OAuth request not ready. Please try again in a moment.'
+        );
       }
 
-      console.log('🔐 Starting Google OAuth flow...');
+      console.log(
+        '🔐 Starting Google OAuth flow with Client ID:',
+        googleClientId.substring(0, 20) + '...'
+      );
       await promptAsync();
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Authentication failed');
+      const errorMessage =
+        err.message || 'Authentication failed. Please try again.';
+      setError(errorMessage);
       setIsLoading(false);
     }
   };

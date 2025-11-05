@@ -4,13 +4,15 @@ Reusable React Native package for fetching TDMU (Thủ Dầu Một University) s
 
 ## Features
 
-✅ **Easy Integration** - Simple to integrate into any React Native project
-✅ **Expo AuthSession** - Modern OAuth authentication without Google Cloud Console requirements
-✅ **Dynamic Client ID** - Automatically fetches Google OAuth config from TDMU
-✅ **Automatic Caching** - Built-in caching to reduce API calls
-✅ **TypeScript Support** - Full TypeScript definitions included
-✅ **Flexible Usage** - Use as a component, hook, or direct client
+✅ **Easy Integration** - Simple to integrate into any React Native project  
+✅ **Expo AuthSession** - Modern OAuth authentication without Google Cloud Console requirements  
+✅ **Dynamic Client ID** - Automatically fetches Google OAuth config from TDMU  
+✅ **Automatic Caching** - Built-in caching to reduce API calls  
+✅ **TypeScript Support** - Full TypeScript definitions included  
+✅ **Flexible Usage** - Use as a component, hook, or direct client  
 ✅ **Customizable UI** - Fully customizable schedule rendering
+
+> 🇻🇳 **Vietnamese Guide:** [Hướng dẫn Best Fix (Tiếng Việt)](./FIX_SUMMARY_VI.md)
 
 ## Installation
 
@@ -48,14 +50,17 @@ If you're using Expo, update your `app.json`:
 
 ### 2. No Google Cloud Console Required!
 
-This package uses TDMU's public Google OAuth configuration, so you don't need to:
+This package uses **Expo AuthSession** with TDMU's public Google OAuth configuration, so you don't need to:
 
-- Set up Google Cloud Console project
-- Configure OAuth consent screen
-- Add SHA-1 fingerprints
-- Create Web Client IDs
+- ❌ Set up Google Cloud Console project
+- ❌ Configure OAuth consent screen
+- ❌ Add SHA-1 fingerprints
+- ❌ Create Android/iOS Client IDs
+- ❌ Manage OAuth credentials
 
 The authentication flow automatically uses the university's Google OAuth settings.
+
+📖 **[Read the Complete Expo AuthSession Setup Guide](./EXPO_AUTH_SETUP_GUIDE.md)**
 
 ### 3. Platform-Specific Setup
 
