@@ -1,5 +1,8 @@
-import { useState, useCallback } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useState, useCallback, useEffect } from 'react';
+import * as AuthSession from 'expo-auth-session';
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import axios from 'axios';
 import TDMUScheduleClient from '../TDMUScheduleClient';
 import type {
   TDMUConfig,
@@ -7,6 +10,8 @@ import type {
   Semester,
   ScheduleResult,
 } from '../TDMUScheduleClient';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export interface UseTDMUScheduleReturn {
   // State
@@ -41,56 +46,99 @@ export const useTDMUSchedule = (
   const [schedule, setSchedule] = useState<ScheduleItem[] | null>(null);
   const [semester, setSemester] = useState<Semester | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+
+  // Fetch Google client ID from TDMU config
+  useEffect(() => {
+    const fetchClientId = async () => {
+      try {
+        const { data } = await axios.get('https://dkmh.tdmu.edu.vn/authconfig');
+        const clientId = data.gg;
+        if (clientId) {
+          setGoogleClientId(clientId);
+        }
+      } catch (err) {
+        console.error('Failed to fetch TDMU auth config:', err);
+      }
+    };
+    fetchClientId();
+  }, []);
+
+  // Set up Google auth request
+  const [request, response, promptAsync] = useIdTokenAuthRequest(
+    {
+      webClientId: googleClientId || '', // Use webClientId for Google OAuth
+      responseType: AuthSession.ResponseType.IdToken,
+      scopes: ['openid', 'email', 'profile'],
+    },
+    {
+      scheme: 'tschedule-example', // Use a default scheme
+    }
+  );
+
+  const handleGoogleAuthSuccess = useCallback(
+    async (idToken: string) => {
+      try {
+        console.log('Got Google ID token');
+
+        // Authenticate with TDMU using Google ID token
+        await client.authenticateWithGoogle(idToken);
+        console.log('TDMU authentication successful');
+
+        setIsAuthenticated(true);
+        setIsLoading(false);
+      } catch (err: any) {
+        console.error('TDMU authentication error:', err);
+        setError(err.message || 'TDMU authentication failed');
+        setIsAuthenticated(false);
+        setIsLoading(false);
+      }
+    },
+    [client]
+  );
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { params } = response;
+      const idToken = params.id_token;
+
+      if (idToken) {
+        handleGoogleAuthSuccess(idToken);
+      }
+    } else if (response?.type === 'error') {
+      setError('Authentication failed');
+      setIsLoading(false);
+    }
+  }, [response, handleGoogleAuthSuccess]);
 
   /**
-   * Authenticate with Google and TDMU
+   * Authenticate with Google and TDMU using Expo AuthSession
    */
   const authenticate = useCallback(async (): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Google Sign-In
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
-      await GoogleSignin.signIn();
-      const tokens = await GoogleSignin.getTokens();
-
-      if (!tokens.accessToken) {
-        throw new Error('Failed to get Google access token');
+      if (!googleClientId) {
+        throw new Error('Google client ID not available. Please try again.');
       }
 
-      // TDMU Authentication
-      await client.authenticateWithGoogle(tokens.accessToken);
+      if (!request) {
+        throw new Error('Auth request not ready. Please try again.');
+      }
 
-      setIsAuthenticated(true);
-      return true;
+      console.log('Starting Google OAuth flow...');
+      await promptAsync();
+
+      return true; // Return true, the actual success will be handled in useEffect
     } catch (err: any) {
       console.error('Authentication error:', err);
-
-      // Provide helpful error message for common Google Sign-In issues
-      if (
-        err.code === '12501' ||
-        err.message?.includes('DEVELOPER_ERROR') ||
-        err.message?.includes('12501')
-      ) {
-        const helperMessage =
-          'Google Sign-In not configured. Please call GoogleSignin.configure() ' +
-          'with your webClientId before using this hook. ' +
-          'See: https://github.com/react-native-google-signin/google-signin#configure';
-        setError(helperMessage);
-        console.error(helperMessage);
-      } else {
-        setError(err.message || 'Authentication failed');
-      }
-
+      setError(err.message || 'Authentication failed');
       setIsAuthenticated(false);
-      return false;
-    } finally {
       setIsLoading(false);
+      return false;
     }
-  }, [client]);
+  }, [googleClientId, request, promptAsync]);
 
   /**
    * Fetch current schedule
@@ -160,7 +208,6 @@ export const useTDMUSchedule = (
   const logout = useCallback(async (): Promise<void> => {
     try {
       await client.logout();
-      await GoogleSignin.signOut();
 
       setIsAuthenticated(false);
       setSchedule(null);

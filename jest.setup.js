@@ -11,27 +11,48 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   clear: jest.fn(() => Promise.resolve()),
 }));
 
-// Mock Google Sign-In
-jest.mock('@react-native-google-signin/google-signin', () => ({
-  GoogleSignin: {
-    configure: jest.fn(),
-    hasPlayServices: jest.fn(() => Promise.resolve(true)),
-    signIn: jest.fn(() =>
+// Mock Expo AuthSession
+jest.mock('expo-auth-session', () => ({
+  AuthSession: {
+    makeRedirectUri: jest.fn(
+      () => 'https://auth.expo.io/@mock/tschedule-example'
+    ),
+    startAsync: jest.fn(() =>
       Promise.resolve({
-        user: {
-          id: 'test-id',
-          email: 'test@tdmu.edu.vn',
+        type: 'success',
+        params: {
+          id_token: 'mock-google-id-token',
+          access_token: 'mock-google-access-token',
         },
       })
     ),
-    signOut: jest.fn(() => Promise.resolve()),
-    getTokens: jest.fn(() =>
-      Promise.resolve({
-        accessToken: 'mock-access-token',
-        idToken: 'mock-id-token',
-      })
-    ),
   },
+}));
+
+// Mock Expo WebBrowser
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+  openBrowserAsync: jest.fn(() => Promise.resolve({ type: 'closed' })),
+}));
+
+// Mock Expo Crypto
+jest.mock('expo-crypto', () => ({
+  getRandomBytesAsync: jest.fn(() => Promise.resolve(new Uint8Array(32))),
+  digestStringAsync: jest.fn(() => Promise.resolve('mock-digest')),
+}));
+
+// Mock expo-auth-session providers
+jest.mock('expo-auth-session/providers/google', () => ({
+  useIdTokenAuthRequest: jest.fn(() => [
+    null, // request
+    null, // response
+    jest.fn(() =>
+      Promise.resolve({
+        type: 'success',
+        params: { id_token: 'mock-google-id-token' },
+      })
+    ), // promptAsync
+  ]),
 }));
 
 // Mock axios

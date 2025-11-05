@@ -49,7 +49,8 @@
     "calendar",
     "university",
     "thu-dau-mot",
-    "google-signin",
+    "expo-auth",
+    "oauth",
     "education"
   ],
   "repository": {
@@ -91,8 +92,10 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.19.0",
-    "@react-native-google-signin/google-signin": "^10.0.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "expo-auth-session": "~5.5.2",
+    "expo-crypto": "~13.0.2",
+    "expo-web-browser": "~13.0.3"
   },
   "peerDependencies": {
     "react": ">=16.8.0",
@@ -112,7 +115,7 @@
       "<rootDir>/jest.setup.js"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(@react-native|react-native|@react-native-async-storage|@react-native-google-signin)/)"
+      "node_modules/(?!(@react-native|react-native|@react-native-async-storage|expo-.*|@expo-.*)/)"
     ]
   },
   "commitlint": {

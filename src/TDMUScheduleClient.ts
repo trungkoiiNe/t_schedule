@@ -87,17 +87,17 @@ class TDMUScheduleClient {
   }
 
   /**
-   * Authenticate with TDMU using Google Access Token
-   * @param googleAccessToken - Google OAuth access token
+   * Authenticate with TDMU using Google ID Token
+   * @param googleIdToken - Google OAuth ID token
    * @returns TDMU authentication data
    */
   async authenticateWithGoogle(
-    googleAccessToken: string
+    googleIdToken: string
   ): Promise<TDMUAuthResponse> {
     try {
       const formData = new URLSearchParams();
       formData.append('username', this.config.tdmuUsername);
-      formData.append('password', googleAccessToken);
+      formData.append('password', googleIdToken);
       formData.append('grant_type', 'password');
 
       const response = await axios.post<TDMUAuthResponse>(
@@ -122,6 +122,26 @@ class TDMUScheduleClient {
     } catch (error) {
       console.error('TDMU Authentication Failed:', error);
       throw new Error('Failed to authenticate with TDMU system');
+    }
+  }
+
+  /**
+   * Get TDMU authentication configuration
+   * @returns Auth configuration including Google client ID
+   */
+  async getAuthConfig(): Promise<{
+    gg: string;
+    logoff: boolean;
+    timeout: number;
+  }> {
+    try {
+      const response = await axios.get(
+        `${this.config.baseURL.replace('/public/api', '')}/authconfig`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch TDMU auth config:', error);
+      throw error;
     }
   }
 

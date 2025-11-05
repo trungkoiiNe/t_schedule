@@ -1,8 +1,9 @@
 /**
  * Direct Client Example: Using TDMUScheduleClient directly
  * This provides the most control but requires more manual handling
+ * Updated to use Expo AuthSession for Google OAuth
  */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,9 +12,14 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AuthSession from 'expo-auth-session';
+import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import axios from 'axios';
 import { TDMUScheduleClient } from 'react-native-t-schedule';
 import type { ScheduleItem, Semester } from 'react-native-t-schedule';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function DirectClientExample() {
   const [client] = useState(
@@ -29,39 +35,37 @@ export default function DirectClientExample() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [semester, setSemester] = useState<Semester | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Google Sign-In
-      await GoogleSignin.hasPlayServices({
-        showPlayServicesUpdateDialog: true,
-      });
-      await GoogleSignin.signIn();
-      const tokens = await GoogleSignin.getTokens();
-
-      if (!tokens.accessToken) {
-        throw new Error('Failed to get Google access token');
+  // Fetch Google client ID from TDMU config
+  useEffect(() => {
+    const fetchClientId = async () => {
+      try {
+        const { data } = await axios.get('https://dkmh.tdmu.edu.vn/authconfig');
+        const clientId = data.gg;
+        if (clientId) {
+          setGoogleClientId(clientId);
+        }
+      } catch (err) {
+        console.error('Failed to fetch TDMU auth config:', err);
       }
+    };
+    fetchClientId();
+  }, []);
 
-      // TDMU Authentication
-      await client.authenticateWithGoogle(tokens.accessToken);
-
-      console.log('✅ Authentication successful!');
-
-      // Fetch schedule
-      await handleFetchSchedule();
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Authentication failed');
-    } finally {
-      setIsLoading(false);
+  // Set up Google auth request
+  const [request, response, promptAsync] = useIdTokenAuthRequest(
+    {
+      webClientId: googleClientId || '', // Use webClientId for Google OAuth
+      responseType: AuthSession.ResponseType.IdToken,
+      scopes: ['openid', 'email', 'profile'],
+    },
+    {
+      scheme: 'tschedule-example',
     }
-  };
+  );
 
-  const handleFetchSchedule = async () => {
+  const handleFetchSchedule = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -82,12 +86,67 @@ export default function DirectClientExample() {
     } finally {
       setIsLoading(false);
     }
+  }, [client]);
+
+  const handleGoogleAuthSuccess = useCallback(
+    async (idToken: string) => {
+      try {
+        console.log('✅ Got Google ID token');
+
+        // Authenticate with TDMU using Google ID token
+        await client.authenticateWithGoogle(idToken);
+        console.log('✅ TDMU authentication successful!');
+
+        // Fetch schedule
+        await handleFetchSchedule();
+      } catch (err: any) {
+        console.error('TDMU authentication error:', err);
+        setError(err.message || 'TDMU authentication failed');
+        setIsLoading(false);
+      }
+    },
+    [client, handleFetchSchedule]
+  );
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { params } = response;
+      const idToken = params.id_token;
+
+      if (idToken) {
+        handleGoogleAuthSuccess(idToken);
+      }
+    } else if (response?.type === 'error') {
+      setError('Authentication failed');
+      setIsLoading(false);
+    }
+  }, [response, handleGoogleAuthSuccess]);
+
+  const handleLogin = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      if (!googleClientId) {
+        throw new Error('Google client ID not available. Please try again.');
+      }
+
+      if (!request) {
+        throw new Error('Auth request not ready. Please try again.');
+      }
+
+      console.log('🔐 Starting Google OAuth flow...');
+      await promptAsync();
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Authentication failed');
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = async () => {
     try {
       await client.logout();
-      await GoogleSignin.signOut();
       setSchedule([]);
       setSemester(null);
       console.log('✅ Logged out successfully');

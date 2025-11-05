@@ -1,14 +1,15 @@
 # react-native-t-schedule
 
-Reusable React Native package for fetching TDMU (Thủ Dầu Một University) schedules with Google authentication.
+Reusable React Native package for fetching TDMU (Thủ Dầu Một University) schedules with Google authentication using Expo AuthSession.
 
 ## Features
 
-✅ **Easy Integration** - Simple to integrate into any React Native project  
-✅ **Google Authentication** - Secure authentication using Google OAuth  
-✅ **Automatic Caching** - Built-in caching to reduce API calls  
-✅ **TypeScript Support** - Full TypeScript definitions included  
-✅ **Flexible Usage** - Use as a component, hook, or direct client  
+✅ **Easy Integration** - Simple to integrate into any React Native project
+✅ **Expo AuthSession** - Modern OAuth authentication without Google Cloud Console requirements
+✅ **Dynamic Client ID** - Automatically fetches Google OAuth config from TDMU
+✅ **Automatic Caching** - Built-in caching to reduce API calls
+✅ **TypeScript Support** - Full TypeScript definitions included
+✅ **Flexible Usage** - Use as a component, hook, or direct client
 ✅ **Customizable UI** - Fully customizable schedule rendering
 
 ## Installation
@@ -24,50 +25,43 @@ yarn add react-native-t-schedule
 This package requires the following peer dependencies:
 
 ```bash
-npm install @react-native-async-storage/async-storage @react-native-google-signin/google-signin axios
+npm install @react-native-async-storage/async-storage axios expo-auth-session expo-web-browser expo-crypto
 # or
-yarn add @react-native-async-storage/async-storage @react-native-google-signin/google-signin axios
+yarn add @react-native-async-storage/async-storage axios expo-auth-session expo-web-browser expo-crypto
 ```
 
 ## Setup
 
-### 1. Configure Google Sign-In
+### 1. Configure Expo for OAuth
 
-In your app's initialization file (e.g., `App.tsx` or `index.js`):
+If you're using Expo, update your `app.json`:
 
-```typescript
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  offlineAccess: true,
-});
+```json
+{
+  "expo": {
+    "name": "your-app",
+    "scheme": "your-app-scheme",
+    "plugins": ["expo-router"]
+  }
+}
 ```
 
-**Get your Web Client ID from:**
+### 2. No Google Cloud Console Required!
 
-- Firebase Console → Project Settings → General
-- Or Google Cloud Console → APIs & Services → Credentials
+This package uses TDMU's public Google OAuth configuration, so you don't need to:
 
-### 2. Platform-Specific Setup
+- Set up Google Cloud Console project
+- Configure OAuth consent screen
+- Add SHA-1 fingerprints
+- Create Web Client IDs
 
-#### iOS
+The authentication flow automatically uses the university's Google OAuth settings.
 
-Add to `ios/Podfile`:
+### 3. Platform-Specific Setup
 
-```ruby
-pod 'GoogleSignIn'
-```
+#### iOS & Android
 
-Then run:
-
-```bash
-cd ios && pod install
-```
-
-#### Android
-
-No additional setup required beyond the dependencies.
+No additional setup required! Expo AuthSession handles all native configuration automatically.
 
 ## Usage
 
@@ -198,12 +192,12 @@ function MyScheduleScreen() {
 
 ### Method 3: Direct Client (Most Control)
 
-For complete control over the client:
+For complete control over the authentication flow:
 
 ```typescript
-import { useState, useEffect } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { TDMUScheduleClient } from 'react-native-t-schedule';
+import * as AuthSession from 'expo-auth-session';
+import axios from 'axios';
 
 async function fetchMySchedule() {
   const client = new TDMUScheduleClient({
@@ -213,20 +207,38 @@ async function fetchMySchedule() {
   });
 
   try {
-    // Google Sign-In
-    await GoogleSignin.signIn();
-    const tokens = await GoogleSignin.getTokens();
+    // 1️⃣ Get Google client ID from TDMU
+    const { data } = await axios.get('https://dkmh.tdmu.edu.vn/authconfig');
+    const clientId = data.gg;
 
-    // TDMU Authentication
-    await client.authenticateWithGoogle(tokens.accessToken);
+    // 2️⃣ Start Google OAuth flow
+    const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+    const authUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `response_type=id_token&` +
+      `scope=openid%20email%20profile&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `nonce=${Math.random().toString(36).substring(2)}`;
+
+    const result = await AuthSession.startAsync({ authUrl });
+
+    if (result.type !== 'success') {
+      throw new Error('Login cancelled');
+    }
+
+    const idToken = result.params.id_token;
+
+    // 3️⃣ Authenticate with TDMU using Google ID token
+    await client.authenticateWithGoogle(idToken);
 
     // Fetch current schedule
-    const result = await client.fetchCurrentSchedule();
+    const scheduleResult = await client.fetchCurrentSchedule();
 
-    console.log('Schedule:', result.schedule);
-    console.log('Semester:', result.semester);
+    console.log('Schedule:', scheduleResult.schedule);
+    console.log('Semester:', scheduleResult.semester);
 
-    return result;
+    return scheduleResult;
   } catch (error) {
     console.error('Error:', error);
   }
@@ -252,9 +264,13 @@ new TDMUScheduleClient(config?: TDMUConfig)
 
 #### Methods
 
-##### `authenticateWithGoogle(googleAccessToken: string): Promise<TDMUAuthResponse>`
+##### `authenticateWithGoogle(googleIdToken: string): Promise<TDMUAuthResponse>`
 
-Authenticate with TDMU using Google access token.
+Authenticate with TDMU using Google ID token.
+
+##### `getAuthConfig(): Promise<{ gg: string; logoff: boolean; timeout: number }>`
+
+Get TDMU authentication configuration including Google client ID.
 
 ##### `validateAccess(): Promise<any>`
 
