@@ -68,7 +68,23 @@ export const useTDMUSchedule = (
       return true;
     } catch (err: any) {
       console.error('Authentication error:', err);
-      setError(err.message || 'Authentication failed');
+
+      // Provide helpful error message for common Google Sign-In issues
+      if (
+        err.code === '12501' ||
+        err.message?.includes('DEVELOPER_ERROR') ||
+        err.message?.includes('12501')
+      ) {
+        const helperMessage =
+          'Google Sign-In not configured. Please call GoogleSignin.configure() ' +
+          'with your webClientId before using this hook. ' +
+          'See: https://github.com/react-native-google-signin/google-signin#configure';
+        setError(helperMessage);
+        console.error(helperMessage);
+      } else {
+        setError(err.message || 'Authentication failed');
+      }
+
       setIsAuthenticated(false);
       return false;
     } finally {
