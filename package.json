@@ -1,7 +1,7 @@
 {
   "name": "react-native-t-schedule",
   "version": "0.1.0",
-  "description": "lay thoi khoa bieu cua TDMU",
+  "description": "Reusable React Native package for fetching TDMU university schedules with Google authentication",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -43,7 +43,14 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "tdmu",
+    "schedule",
+    "calendar",
+    "university",
+    "thu-dau-mot",
+    "google-signin",
+    "education"
   ],
   "repository": {
     "type": "git",
@@ -82,9 +89,14 @@
     "release-it": "^19.0.4",
     "typescript": "^5.9.2"
   },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.19.0",
+    "@react-native-google-signin/google-signin": "^10.0.0",
+    "axios": "^1.6.0"
+  },
   "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
+    "react": ">=16.8.0",
+    "react-native": ">=0.60.0"
   },
   "workspaces": [
     "example"
@@ -95,6 +107,12 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@react-native|react-native|@react-native-async-storage|@react-native-google-signin)/)"
     ]
   },
   "commitlint": {

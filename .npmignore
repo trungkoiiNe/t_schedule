@@ -1,0 +1,62 @@
+# Development files
+example/
+.vscode/
+.idea/
+
+# Documentation (keep in repo, exclude from package)
+TDMU_SCHEDULE_PACKAGE_GUIDE.md
+USAGE_GUIDE.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+lefthook.yml
+
+# Tests
+**/__tests__/
+**/__fixtures__/
+**/__mocks__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.spec.ts
+*.spec.tsx
+*.spec.js
+jest.setup.js
+
+# Build tools
+.eslintrc*
+.prettierrc*
+eslint.config.mjs
+tsconfig.json
+tsconfig.build.json
+babel.config.js
+
+# Misc
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Source maps
+*.map
+
+# Editor directories
+.vscode/
+.idea/
+
+# Package manager
+yarn.lock
+package-lock.json
+yarn-error.log
+
+# Node
+node_modules/
+npm-debug.log*
+
