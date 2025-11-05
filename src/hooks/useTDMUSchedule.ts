@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as AuthSession from 'expo-auth-session';
-import { useIdTokenAuthRequest } from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import axios from 'axios';
 import TDMUScheduleClient from '../TDMUScheduleClient';
@@ -66,66 +65,9 @@ export const useTDMUSchedule = (
     fetchClientId();
   }, []);
 
-  // Set up Google auth request
-  const [request, response, promptAsync] = useIdTokenAuthRequest(
-    {
-      webClientId: googleClientId || '', // Use webClientId for Google OAuth
-      responseType: AuthSession.ResponseType.IdToken,
-      scopes: ['openid', 'email', 'profile'],
-    }
-    // Don't specify scheme here - let AuthSession.makeRedirectUri() handle it automatically
-  );
-
-  const handleGoogleAuthSuccess = useCallback(
-    async (idToken: string) => {
-      try {
-        console.log('Got Google ID token');
-
-        // Authenticate with TDMU using Google ID token
-        await client.authenticateWithGoogle(idToken);
-        console.log('TDMU authentication successful');
-
-        setIsAuthenticated(true);
-        setError(null);
-        setIsLoading(false);
-      } catch (err: any) {
-        console.error('TDMU authentication error:', err);
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          'TDMU authentication failed';
-        setError(errorMessage);
-        setIsAuthenticated(false);
-        setIsLoading(false);
-      }
-    },
-    [client]
-  );
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { params } = response;
-      const idToken = params.id_token;
-
-      if (idToken) {
-        handleGoogleAuthSuccess(idToken);
-      } else {
-        setError('No ID token received from Google');
-        setIsLoading(false);
-      }
-    } else if (response?.type === 'error') {
-      console.error('Google OAuth error:', response.error);
-      setError(response.error?.description || 'Google authentication failed');
-      setIsLoading(false);
-    } else if (response?.type === 'cancel') {
-      console.log('User cancelled authentication');
-      setError('Authentication cancelled');
-      setIsLoading(false);
-    }
-  }, [response, handleGoogleAuthSuccess]);
-
   /**
-   * Authenticate with Google and TDMU using Expo AuthSession
+   * Authenticate with Google and TDMU using Expo AuthSession (manual flow)
+   * No androidClientId required - works with web client ID only!
    */
   const authenticate = useCallback(async (): Promise<boolean> => {
     try {
@@ -135,7 +77,6 @@ export const useTDMUSchedule = (
       // Wait for Google Client ID if not loaded yet
       if (!googleClientId) {
         console.log('Waiting for Google Client ID...');
-        // Give it a short retry window
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (!googleClientId) {
           throw new Error(
@@ -144,30 +85,68 @@ export const useTDMUSchedule = (
         }
       }
 
-      if (!request) {
-        throw new Error(
-          'OAuth request not ready. Please try again in a moment.'
-        );
-      }
-
       console.log(
         'Starting Google OAuth flow with Client ID:',
         googleClientId.substring(0, 20) + '...'
       );
-      const result = await promptAsync();
 
-      // The actual authentication result will be handled in useEffect
-      return result.type !== 'error' && result.type !== 'dismiss';
+      // Manual OAuth flow - no androidClientId needed!
+      const redirectUri = AuthSession.makeRedirectUri();
+      const authUrl =
+        `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(googleClientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&response_type=id_token` +
+        `&scope=${encodeURIComponent('openid email profile')}` +
+        `&nonce=${Math.random().toString(36).substring(2)}`;
+
+      console.log('Redirect URI:', redirectUri);
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
+
+      if (result.type === 'success') {
+        // Parse the URL to extract id_token from hash
+        const url = result.url;
+        const hashParams = new URLSearchParams(url.split('#')[1] || '');
+        const idToken = hashParams.get('id_token');
+
+        if (!idToken) {
+          throw new Error('No ID token received from Google');
+        }
+
+        console.log('Got Google ID token');
+
+        // Authenticate with TDMU using Google ID token
+        await client.authenticateWithGoogle(idToken);
+        console.log('TDMU authentication successful');
+
+        setIsAuthenticated(true);
+        setError(null);
+        setIsLoading(false);
+        return true;
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        console.log('User cancelled authentication');
+        setError('Authentication cancelled');
+        setIsLoading(false);
+        return false;
+      }
+
+      return false;
     } catch (err: any) {
       console.error('Authentication error:', err);
       const errorMessage =
-        err.message || 'Authentication failed. Please try again.';
+        err.response?.data?.message ||
+        err.message ||
+        'Authentication failed. Please try again.';
       setError(errorMessage);
       setIsAuthenticated(false);
       setIsLoading(false);
       return false;
     }
-  }, [googleClientId, request, promptAsync]);
+  }, [googleClientId, client]);
 
   /**
    * Fetch current schedule
